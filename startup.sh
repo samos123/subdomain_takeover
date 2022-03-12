@@ -39,15 +39,21 @@ DOMAIN=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attri
 echo "Starting subdomain takeover finder for $DOMAIN"
 subfinder -pc config.yaml -d "$DOMAIN" -o $DOMAIN-subdomains -all
 mkdir enum
-gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent -adv | split -l 100000 - enum/$DOMAIN-subdomains-enum
+gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent -adv | \
+    split --filter --suffix-length 5 'gzip > $FILE.gz'-d -l 100000000  - enum/$DOMAIN-subdomains-enum
 for filename in enum/*; do
-shuffledns -list $filename -silent -r resolvers.txt -d $DOMAIN -o $filename-resolved -massdns /usr/local/sbin/massdns -directory .
-subjack -w $filename-resolved -t 100 -timeout 30 -o $filename-subjack -ssl -c fingerprints.json -a
-cat $filename-subjack
-gsutil cp $filename-subjack gs://samos123-pentest/
-rm $filename
-rm $filename-resolved
+  shuffledns -list $filename -silent -r resolvers.txt -d $DOMAIN \
+      -o $filename-resolved -massdns /usr/local/sbin/massdns -directory .
+  subjack -w $filename-resolved -t 100 -timeout 30 -o $filename-subjack -ssl -c fingerprints.json -a
+  if test -f "$filename-subjack"; then
+    cat $filename-subjack
+    gsutil cp $filename-subjack gs://samos123-pentest/
+  fi
+  rm $filename
 done
+
+cat enum/*resolved* | uniq > $DOMAIN-resolved
+gsutil cp $DOMAIN-resolved gs://samos123-pentest/
 
 # Delete the VM itself
 export NAME=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')
