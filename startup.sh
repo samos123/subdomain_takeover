@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -x
 
@@ -8,25 +8,46 @@ rm -rf /usr/local/go
 curl -LO https://go.dev/dl/go$GOVERSION.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go$GOVERSION.linux-amd64.tar.gz
 export GOROOT=/usr/local/go
-export GOPATH=$HOME/go
-export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+export GOPATH=/root/go
+export GOCACHE=/root/go/cache
+export HOME=/root
+mkdir -p /root/go
+export PATH="$GOPATH/bin:$GOROOT/bin:$PATH"
 
 
 # Install dns enumration tools
-cd $HOME
+cd /root
 go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 wget https://raw.githubusercontent.com/janmasarik/resolvers/master/resolvers.txt
-go get github.com/Josue87/gotator
-go get github.com/haccer/subjack
+go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
+go install github.com/Josue87/gotator@latest
+go install github.com/haccer/subjack@latest
 wget https://raw.githubusercontent.com/haccer/subjack/master/fingerprints.json
+apt-get update
+apt-get install -y gcc make
+git clone https://github.com/blechschmidt/massdns
+pushd massdns
+make
+cp bin/massdns /usr/local/sbin/
+popd
+
+gsutil cp gs://samos123-pentest/config.yaml .
+gsutil cp gs://samos123-pentest/words-1k.txt .
 
 # Get domain value from GCE metadata
-DOMAIN=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/domain" -H "Metadata-Flavor: Google")
+DOMAIN=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/domain" -H "Metadata-Flavor: Google")
 echo "Starting subdomain takeover finder for $DOMAIN"
-subfinder -config config.yaml -d "$DOMAIN" -o $DOMAIN-subdomains -all
-gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent | shuffledns -r resolvers.txt -d $DOMAIN -o $DOMAIN-subdomains-brute -massdns /usr/local/sbin/massdns -directory .
-subjack -w $DOMAIN-subdomains-brute -t 100 -timeout 30 -o $DOMAIN-results.txt -ssl -c fingerprints.json
-gsutil cp $DOMAIN-results.txt gs://samos123-pentest/
+subfinder -pc config.yaml -d "$DOMAIN" -o $DOMAIN-subdomains -all
+mkdir enum
+gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent -adv | split -l 100000 - enum/$DOMAIN-subdomains-enum
+for filename in enum/*; do
+shuffledns -list $filename -silent -r resolvers.txt -d $DOMAIN -o $filename-resolved -massdns /usr/local/sbin/massdns -directory .
+subjack -w $filename-resolved -t 100 -timeout 30 -o $filename-subjack -ssl -c fingerprints.json -a
+cat $filename-subjack
+gsutil cp $filename-subjack gs://samos123-pentest/
+rm $filename
+rm $filename-resolved
+done
 
 # Delete the VM itself
 export NAME=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')
