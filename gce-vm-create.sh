@@ -2,7 +2,9 @@
 
 DOMAIN=$1
 
-gcloud beta compute instances create brute-dns \
+ID=$(tr -dc a-z0-9 </dev/urandom | head -c 2 ; echo '')
+
+gcloud beta compute instances create brute-dns-$ID \
   --boot-disk-size=100GB \
   --boot-disk-type=pd-balanced \
   --project=samos123-pentest \
@@ -13,4 +15,5 @@ gcloud beta compute instances create brute-dns \
   --image-family=ubuntu-2004-lts \
   --metadata=domain=$DOMAIN \
   --metadata-from-file=startup-script=startup.sh \
+  --scopes=default,storage-rw,compute-rw \
   --machine-type=t2d-standard-2

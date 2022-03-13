@@ -34,16 +34,21 @@ popd
 gsutil cp gs://samos123-pentest/config.yaml .
 gsutil cp gs://samos123-pentest/words-1k.txt .
 
+# install ops agent
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+sudo bash add-google-cloud-ops-agent-repo.sh --also-install
+
 # Get domain value from GCE metadata
 DOMAIN=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/domain" -H "Metadata-Flavor: Google")
 echo "Starting subdomain takeover finder for $DOMAIN"
 subfinder -pc config.yaml -d "$DOMAIN" -o $DOMAIN-subdomains -all
 mkdir enum
 gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent -adv | \
-    split --filter --suffix-length 5 'gzip > $FILE.gz'-d -l 100000000  - enum/$DOMAIN-subdomains-enum
+    split --suffix-length 5 --filter 'gzip > $FILE.gz' -d -b 30G - enum/$DOMAIN-subdomains-enum
 for filename in enum/*; do
-  shuffledns -list $filename -silent -r resolvers.txt -d $DOMAIN \
-      -o $filename-resolved -massdns /usr/local/sbin/massdns -directory .
+  gzip -d -c $filename | \
+    shuffledns -silent -r resolvers.txt -d $DOMAIN \
+        -o $filename-resolved -massdns /usr/local/sbin/massdns -directory .
   subjack -w $filename-resolved -t 100 -timeout 30 -o $filename-subjack -ssl -c fingerprints.json -a
   if test -f "$filename-subjack"; then
     cat $filename-subjack
@@ -58,4 +63,4 @@ gsutil cp $DOMAIN-resolved gs://samos123-pentest/
 # Delete the VM itself
 export NAME=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/name -H 'Metadata-Flavor: Google')
 export ZONE=$(curl -X GET http://metadata.google.internal/computeMetadata/v1/instance/zone -H 'Metadata-Flavor: Google')
-#gcloud --quiet compute instances delete $NAME --zone=$ZONE
+gcloud --quiet compute instances delete $NAME --zone=$ZONE
