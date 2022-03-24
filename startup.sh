@@ -43,8 +43,8 @@ DOMAIN=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attri
 echo "Starting subdomain takeover finder for $DOMAIN"
 subfinder -pc config.yaml -d "$DOMAIN" -o $DOMAIN-subdomains -all
 mkdir enum
-gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 10 -prefixes -md -silent -adv | \
-    split --suffix-length 5 --filter 'gzip > $FILE.gz' -d -b 30G - enum/$DOMAIN-subdomains-enum
+gotator -sub $DOMAIN-subdomains -perm words-1k.txt -depth 2 -numbers 5 -prefixes -md -silent -adv | \
+    split --suffix-length 5 --filter 'gzip > $FILE.gz' -d -b 5G - enum/$DOMAIN-subdomains-enum
 for filename in enum/*; do
   gzip -d -c $filename | \
     shuffledns -silent -r resolvers.txt -d $DOMAIN \
@@ -54,7 +54,7 @@ for filename in enum/*; do
     cat $filename-subjack
     gsutil cp $filename-subjack gs://samos123-pentest/
   fi
-  rm $filename
+#  rm $filename
 done
 
 cat enum/*resolved* | uniq > $DOMAIN-resolved
