@@ -10,7 +10,7 @@ gcloud beta compute instances create brute-dns-$ID \
   --project=samos123-pentest \
   --zone=us-central1-f \
   --provisioning-model=SPOT \
-  --instance-termination-action=DELETE \
+  --instance-termination-action=STOP \
   --image-project=ubuntu-os-cloud \
   --image-family=ubuntu-2004-lts \
   --metadata=domain=$DOMAIN \
