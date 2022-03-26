@@ -5,7 +5,7 @@ DOMAIN=$1
 ID=$(tr -dc a-z0-9 </dev/urandom | head -c 2 ; echo '')
 
 gcloud beta compute instances create brute-dns-$ID \
-  --boot-disk-size=300GB \
+  --boot-disk-size=500GB \
   --boot-disk-type=pd-balanced \
   --project=samos123-pentest \
   --zone=us-central1-f \
