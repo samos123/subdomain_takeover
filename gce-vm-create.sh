@@ -14,6 +14,6 @@ gcloud beta compute instances create brute-dns-$ID \
   --image-project=ubuntu-os-cloud \
   --image-family=ubuntu-2004-lts \
   --metadata=domain=$DOMAIN \
-  --metadata-from-file=startup-script=startup.sh \
+  --metadata-from-file=startup-script=startup-gce.sh \
   --scopes=default,storage-rw,compute-rw \
   --machine-type=t2d-standard-2
